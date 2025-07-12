@@ -11,11 +11,11 @@ import Testing
 
 struct ObservableArrayTests {
 
-    struct Product {
+    struct StructProduct {
         var name: String
     }
 
-    class RefProduct {
+    class ClassProduct {
         var name: String = ""
 
         init(name: String) {
@@ -32,8 +32,8 @@ struct ObservableArrayTests {
     }
 
     @Observable class Products {
-        var valueProducts: [Product] = []
-        var refProducts: [RefProduct] = []
+        var structProducts: [StructProduct] = []
+        var classProducts: [ClassProduct] = []
         var observableProducts: [ObservableProduct] = []
     }
 
@@ -41,16 +41,16 @@ struct ObservableArrayTests {
         let logger = SimpleLogger<Int>()
 
         let products = Products()
-        products.valueProducts.append(Product(name: "Item1"))
+        products.structProducts.append(StructProduct(name: "Item1"))
 
         withObservationTracking {
-            _ = products.valueProducts
+            _ = products.structProducts
         } onChange: {
             logger.log(1)
         }
 
         // 어레이 자체의 변화에 onChange 가 호출된다.
-        products.valueProducts.append(Product(name: "Item2"))
+        products.structProducts.append(StructProduct(name: "Item2"))
 
         #expect(logger.result() == [1])
     }
@@ -59,16 +59,16 @@ struct ObservableArrayTests {
         let logger = SimpleLogger<Int>()
 
         let products = Products()
-        products.valueProducts.append(Product(name: "Item1"))
+        products.structProducts.append(StructProduct(name: "Item1"))
 
         withObservationTracking {
-            _ = products.valueProducts
+            _ = products.structProducts
         } onChange: {
             logger.log(1)
         }
 
         // 밸류 엘리먼트 변화에 onChange 가 호출된다.
-        products.valueProducts[0].name = "Item1Ver2"
+        products.structProducts[0].name = "Item1Ver2"
 
         #expect(logger.result() == [1])
     }
@@ -77,18 +77,18 @@ struct ObservableArrayTests {
         let logger = SimpleLogger<Int>()
 
         let products = Products()
-        products.valueProducts.append(Product(name: "Item1"))
+        products.structProducts.append(StructProduct(name: "Item1"))
 
         withObservationTracking {
-            _ = products.valueProducts
+            _ = products.structProducts
         } onChange: {
             logger.log(1)
         }
 
         // 업데이트가 여러번 발생해도 onChange 는 한번만 호출된다.
-        products.valueProducts.append(Product(name: "Item2"))
-        products.valueProducts.append(Product(name: "Item3"))
-        products.valueProducts.append(Product(name: "Item4"))
+        products.structProducts.append(StructProduct(name: "Item2"))
+        products.structProducts.append(StructProduct(name: "Item3"))
+        products.structProducts.append(StructProduct(name: "Item4"))
 
         #expect(logger.result() == [1])
     }
@@ -97,16 +97,16 @@ struct ObservableArrayTests {
         let logger = SimpleLogger<Int>()
 
         let products = Products()
-        products.refProducts.append(RefProduct(name: "Item1"))
+        products.classProducts.append(ClassProduct(name: "Item1"))
 
         withObservationTracking {
-            _ = products.refProducts
+            _ = products.classProducts
         } onChange: {
             logger.log(1)
         }
 
         // 어레이 자체의 변화에 onChange 가 호출된다.
-        products.refProducts.append(RefProduct(name: "Item2"))
+        products.classProducts.append(ClassProduct(name: "Item2"))
 
         #expect(logger.result() == [1])
     }
@@ -115,16 +115,16 @@ struct ObservableArrayTests {
         let logger = SimpleLogger<Int>()
 
         let products = Products()
-        products.refProducts.append(RefProduct(name: "Item1"))
+        products.classProducts.append(ClassProduct(name: "Item1"))
 
         withObservationTracking {
-            _ = products.refProducts
+            _ = products.classProducts
         } onChange: {
             logger.log(1)
         }
 
         // 오브젝트 엘리먼트에 대한 업데이트엔 onChange 가 발생하지 않는다.
-        products.refProducts[0].name = "Item1Ver2"
+        products.classProducts[0].name = "Item1Ver2"
 
         #expect(logger.result() == [])
     }
@@ -133,15 +133,15 @@ struct ObservableArrayTests {
         let logger = SimpleLogger<Int>()
 
         let products = Products()
-        products.refProducts.append(RefProduct(name: "Item1"))
+        products.classProducts.append(ClassProduct(name: "Item1"))
 
         withObservationTracking {
-            _ = products.refProducts[0].name
+            _ = products.classProducts[0].name
         } onChange: {
             logger.log(1)
         }
 
-        products.refProducts[0].name = "Item1Ver2"
+        products.classProducts[0].name = "Item1Ver2"
 
         #expect(logger.result() == [])
     }
