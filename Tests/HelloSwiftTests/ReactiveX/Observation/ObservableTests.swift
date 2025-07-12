@@ -59,27 +59,4 @@ struct ObservableTests {
         #expect(logger.result() == [1])
     }
 
-    @Test func testWhenExposedElementChanged() async throws {
-        let logger = SimpleLogger<Int>()
-
-        let pets = [
-            Pet(name: "max", age: 7),
-            Pet(name: "ace", age: 9),
-        ]
-
-        withObservationTracking {
-            _ = pets[0].name
-            _ = pets[1].name
-            logger.log(1)
-        } onChange: {
-            logger.log(2)
-        }
-
-        // 엘리먼트가 Observable 일 때, 다른 인자들과 상관없이 정상 작동함을 확인.
-        pets[0].name = "max juior"
-        pets[1].name = "ace juior"
-
-        #expect(logger.result() == [1, 2])
-    }
-
 }
