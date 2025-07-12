@@ -11,11 +11,6 @@ import Testing
 // https://docs.swift.org/swift-book/documentation/the-swift-programming-language/concurrency#Tasks-and-Task-Groups
 // https://developer.apple.com/documentation/swift/task
 
-// A task is a unit of work that can be run asynchronously as part of your program.
-// All asynchronous code runs as part of some task.
-// A task itself does only one thing at a time,
-// but when you create multiple tasks, Swift can schedule them to run simultaneously.
-
 struct TaskTests {
 
     @Test func testTask() async throws {
