@@ -76,7 +76,7 @@ final class SimpleHTTPServerConnection<Router>: Sendable
     nonisolated(unsafe) var request: SimpleHTTPRequest?
 
     init(connection: NWConnection, router: Router) {
-        self.id = connectionIDGen.nextID()
+        self.id = connectionIDGen.next()!
         self.connection = connection
         self.router = router
     }

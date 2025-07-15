@@ -1,18 +1,18 @@
 //
-//  IntSequenceTest.swift
-//  HelloSwift
+//  IntSequenceWithLockTests.swift
+//  HelloSwiftTests
 //
-//  Created by Kyuhyun Park on 7/15/25.
+//  Created by Kyuhyun Park on 11/19/24.
 //
 
 import Foundation
 import Testing
 import HelloSwift
 
-struct IntSequenceTests {
+struct IntSequenceWithLockTests {
 
     @Test func testIterator() throws {
-        var i = IntSequence(start: 10).makeIterator()
+        let i = IntSequenceWithLock(start: 10).makeIterator()
 
         #expect(i.next() == 10)
         #expect(i.next() == 11)
@@ -20,22 +20,22 @@ struct IntSequenceTests {
     }
 
     @Test func testIteratorClone() throws {
-        var i = IntSequence(start: 10).makeIterator()
-        var j = i
+        let i = IntSequenceWithLock(start: 10).makeIterator()
+        let j = i
 
         #expect(i.next() == 10)
         #expect(i.next() == 11)
         #expect(i.next() == 12)
 
-        #expect(j.next() == 10)
-        #expect(j.next() == 11)
-        #expect(j.next() == 12)
+        #expect(j.next() == 13)
+        #expect(j.next() == 14)
+        #expect(j.next() == 15)
     }
 
     @Test func testForIn() throws {
         let logger = SimpleLogger<Int>()
 
-        for i in IntSequence(start: 10) {
+        for i in IntSequenceWithLock(start: 10) {
             logger.log(i)
             if i >= 15 { break }
         }

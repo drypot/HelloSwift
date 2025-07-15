@@ -11,7 +11,7 @@ import os
 
 // https://rderik.com/blog/building-a-server-client-aplication-using-apple-s-network-framework/
 
-let connectionIDGen = IntIDGenerator()
+let connectionIDGen = IntSequenceWithLock().makeIterator()
 
 public final class MessageServer: Sendable {
 
@@ -64,7 +64,7 @@ final class MessageServerConnection: Sendable {
     let connection: NWConnection
 
     init(connection: NWConnection) {
-        self.id = connectionIDGen.nextID()
+        self.id = connectionIDGen.next()!
         self.connection = connection
     }
 

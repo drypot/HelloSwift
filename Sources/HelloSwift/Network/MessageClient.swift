@@ -15,7 +15,7 @@ public final class MessageClient: Sendable {
     let connection: NWConnection
 
     public init(host: String, port: UInt16) {
-        self.id = connectionIDGen.nextID()
+        self.id = connectionIDGen.next()!
         let nwHost = NWEndpoint.Host(host)
         let nwPort = NWEndpoint.Port(rawValue: port)!
         self.connection = NWConnection(host: nwHost, port: nwPort, using: .tcp)
