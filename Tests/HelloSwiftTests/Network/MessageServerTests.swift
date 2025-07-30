@@ -24,6 +24,11 @@ struct MessageServerTests {
 
         await client.send("good day")
 
+        // 이 간이 메시지 클래스들은 framing 처리를 안 해봐서;
+        // hello 와 good day 가 붙어서 와 버릴 수 있다;
+        // 그러면 테스트가 실패하고 행이 걸린다;
+        // 나중에 수정해야;
+        
         #expect((await client.receive()) == "hello")
         #expect((await client.receive()) == "good day")
 
