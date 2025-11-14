@@ -9,7 +9,7 @@ import Foundation
 
 // https://ko9.org/posts/simple-swift-web-server/
 
-public final class SimpleHTTPRequest {
+public nonisolated final class SimpleHTTPRequest {
     public let method: String
     public let path: String
     public let httpVersion: String

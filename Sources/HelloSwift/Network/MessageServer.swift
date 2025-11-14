@@ -11,7 +11,7 @@ import os
 
 // https://rderik.com/blog/building-a-server-client-aplication-using-apple-s-network-framework/
 
-let connectionIDGen = IntSequenceWithLock().makeIterator()
+nonisolated let connectionIDGen = IntSequenceWithLockIterator()
 
 public final class MessageServer: Sendable {
 
@@ -22,32 +22,36 @@ public final class MessageServer: Sendable {
         self.listener = try! NWListener(using: .tcp, on: nwPort)
     }
 
-    func log(_ message: String) {
+    nonisolated func log(_ message: String) {
         print("server: \(message)")
     }
 
-    public func start() throws {
-        // handler 클로져들에 [weak self] 넣어야 하는데 넣지않고,
-        // 대신 close 메서드에서 nil 대입을 하고 있다.
-        listener.stateUpdateHandler = { state in
-            switch state {
-            case .ready:
-                self.log("state, ready on port \(self.listener.port!)")
-            case .failed(let error):
-                self.log("state, failed, error: \(error)")
-                // exit(EXIT_FAILURE)
-            case .cancelled:
-                self.log("state, canceled")
-            default:
-                self.log("state, \(state)")
-                break
+    public func start() async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            // handler 클로져들에 [weak self] 넣어야 하는데 넣지않고,
+            // 대신 stop 메서드에서 stateUpdateHandler 에 nil 대입을 하고 있다.
+            listener.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    self.log("state, ready on port \(self.listener.port!)")
+                    continuation.resume(returning: ())
+                case .failed(let error):
+                    self.log("state, failed, error: \(error)")
+                    continuation.resume(throwing: error)
+                case .cancelled:
+                    self.log("state, canceled")
+                    continuation.resume(throwing: NWError.posix(.ECANCELED))
+                default:
+                    self.log("state, \(state)")
+                    break
+                }
             }
+            listener.newConnectionHandler = { connection in
+                MessageServerConnection(connection: connection).start()
+            }
+            listener.start(queue: .global())
+            log("started")
         }
-        listener.newConnectionHandler = { connection in
-            MessageServerConnection(connection: connection).start()
-        }
-        listener.start(queue: .global())
-        log("started")
     }
 
     public func stop() {
@@ -58,10 +62,11 @@ public final class MessageServer: Sendable {
     }
 }
 
-final class MessageServerConnection: Sendable {
-
-    let id: Int
-    let connection: NWConnection
+nonisolated final class MessageServerConnection: @unchecked Sendable {
+    private let id: Int
+    private let connection: NWConnection
+    private var receiveBuffer = Data()
+    private var nextMessageLength: UInt32?
 
     init(connection: NWConnection) {
         self.id = connectionIDGen.next()!
@@ -88,21 +93,27 @@ final class MessageServerConnection: Sendable {
                 break
             }
         }
-        setupReceiveHandler()
+        setupReceiver()
         connection.start(queue: .global())
         log("started")
         send("hello")
     }
 
-    private func setupReceiveHandler() {
+    func stop() {
+        connection.stateUpdateHandler = nil
+        connection.cancel()
+        log("stopped")
+    }
+
+    private func setupReceiver() {
         connection.receive(
             minimumIncompleteLength: 1,
             maximumLength: connection.maximumDatagramSize
         ) { data, _, isComplete, error in
 
-            if let data, let message = String(data: data, encoding: .utf8) {
-                self.log("received, \(message)")
-                self.send(message)
+            if let data, !data.isEmpty {
+                self.receiveBuffer.append(data)
+                self.processBuffer()
             }
             if let error {
                 self.log("receive error, \(error)")
@@ -114,26 +125,70 @@ final class MessageServerConnection: Sendable {
                 self.stop()
                 return
             }
-            self.setupReceiveHandler()
+            self.setupReceiver()
+        }
+    }
+
+    private func processBuffer() {
+        while true {
+            // Case 1: 아직 다음 메시지 길이를 모르는 상태 (헤더 읽기)
+            if nextMessageLength == nil {
+                let headerSize = MemoryLayout<UInt32>.size
+
+                // 버퍼에 헤더를 읽을 만큼 데이터가 있는지 확인
+                if receiveBuffer.count >= headerSize {
+                    let lengthData = receiveBuffer.prefix(headerSize)
+                    let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
+                    receiveBuffer.removeFirst(headerSize)
+                    nextMessageLength = length
+                } else {
+                    // 버퍼에 헤더도 채워지지 않았다면 다음 데이터 대기
+                    break
+                }
+            }
+
+            // Case 2: 다음 메시지 길이는 알고 있는 상태 (본문 읽기)
+            if let requiredLength = nextMessageLength {
+                let requiredIntLength = Int(requiredLength)
+                if receiveBuffer.count >= requiredIntLength {
+                    let payloadData = receiveBuffer.prefix(requiredIntLength)
+                    receiveBuffer.removeFirst(requiredIntLength)
+                    handleCompleteMessage(data: payloadData)
+                    nextMessageLength = nil
+                } else {
+                    // 버퍼에 본문이 채워지지 않았다면 다음 데이터 대기
+                    break
+                }
+            }
+        }
+    }
+
+    private func handleCompleteMessage(data: Data) {
+        if let message = String(data: data, encoding: .utf8) {
+            send(message)
+        } else {
+            fatalError()
         }
     }
 
     func send(_ message: String) {
-        let data = message.data(using: .utf8)!
-        connection.send(content: data, completion: .contentProcessed( { error in
+        let payload = message.data(using: .utf8)!
+        let length = UInt32(payload.count)
+        var bigEndianLength = length.bigEndian
+        let lengthData = Data(bytes: &bigEndianLength, count: MemoryLayout<UInt32>.size)
+
+        var framedMessage = Data()
+        framedMessage.append(lengthData)
+        framedMessage.append(payload)
+
+        connection.send(content: framedMessage, completion: .contentProcessed({ error in
             if let error {
                 self.log("send error, \(error)")
                 self.stop()
-                return
+            } else {
+                self.log("sent, \(message)")
             }
-            self.log("sent, \(message)")
         }))
-    }
-
-    func stop() {
-        connection.stateUpdateHandler = nil
-        connection.cancel()
-        log("stopped")
     }
 
 }

@@ -9,7 +9,7 @@ import Foundation
 
 // https://ko9.org/posts/simple-swift-web-server/
 
-public final class SimpleHTTPResponse {
+public nonisolated final class SimpleHTTPResponse {
     public var httpVersion: String
     public var status: Int
     public var reason: String

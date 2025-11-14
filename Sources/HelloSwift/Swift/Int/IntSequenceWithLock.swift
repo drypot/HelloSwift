@@ -8,7 +8,7 @@
 import Foundation
 import os
 
-public struct IntSequenceWithLock: Sequence {
+nonisolated public struct IntSequenceWithLock: Sequence {
     private let start: Int
 
     public init(start: Int = 0) {
@@ -20,7 +20,7 @@ public struct IntSequenceWithLock: Sequence {
     }
 }
 
-public struct IntSequenceWithLockIterator: IteratorProtocol, Sendable {
+nonisolated public struct IntSequenceWithLockIterator: IteratorProtocol, Sendable {
     private let lock: OSAllocatedUnfairLock<Int>
 
     public init(current: Int = 0) {

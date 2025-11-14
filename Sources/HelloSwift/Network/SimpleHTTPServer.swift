@@ -11,11 +11,11 @@ import Network
 // https://github.com/httpswift/swifter
 // https://ko9.org/posts/simple-swift-web-server/
 
-public protocol SimpleHTTPRouter: Sendable {
+public nonisolated protocol SimpleHTTPRouter: Sendable {
     func route(request: SimpleHTTPRequest, response: SimpleHTTPResponse)
 }
 
-public final class SimpleHTTPServer<Router>: Sendable
+nonisolated public final class SimpleHTTPServer<Router>: Sendable
     where Router: SimpleHTTPRouter {
 
     private let listener: NWListener
@@ -67,7 +67,7 @@ public final class SimpleHTTPServer<Router>: Sendable
 
 }
 
-final class SimpleHTTPServerConnection<Router>: Sendable
+nonisolated final class SimpleHTTPServerConnection<Router>: Sendable
     where Router: SimpleHTTPRouter {
 
     let id: Int
