@@ -84,7 +84,7 @@ struct DispatchQueueTests {
 
         // 리소스 접근을 DispatchQueue.sync 로 동기화할 수도 있다.
 
-        final class SyncObject: Sendable {
+        nonisolated final class SyncObject: Sendable {
             nonisolated(unsafe) var _value = 0
             let queue = DispatchQueue(label: "com.example.testDispatchQueueSync")
 

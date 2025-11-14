@@ -19,36 +19,38 @@ import Testing
 
 struct MainActorTests {
 
-    // sync 펑션에서 @MainActor 펑션 부르려면 컴파일 에러.
-    func noMainActor() {
+    // nonisolated sync 펑션에서 @MainActor 펑션 부르려면 컴파일 에러.
+    nonisolated func nonisolatedFunc() {
         //assertMainActor()
     }
 
-    // 일반 async 펑션에서 @MainActor 펑션 부르려면 await.
-    func noMainActorAsync() async {
+    // nonisolated async 펑션에서 @MainActor 펑션 부르려면 await.
+    nonisolated func nonisolatedAsyncFunc() async {
         await assertMainActor()
     }
 
-    // @MainActor 붙은 펑션에서 @MainActor 펑션 부르려면 await 빼야 한다.
-    @MainActor func mainActor() {
+    // MainActor 펑션에서 MainActor 펑션 부르려면 await 빼야 한다.
+    @MainActor func mainActorFunc() {
         assertMainActor()
     }
 
-    // @MainActor 붙은 펑션에서 @MainActor 펑션 부르려면 await 빼야 한다.
-    @MainActor func mainActorAsync() async {
+    // @MainActor async 펑션에서 MainActor 펑션 부르려면 await 빼야 한다.
+    @MainActor func mainActorAsyncFunc() async {
         assertMainActor()
     }
 
-    @Test func mainActorRun() throws {
+    @Test func testMainActorRun() throws {
         Task {
             await MainActor.run {
                 // 여기 코드는 main thread 에서 실행된다.
             }
         }
     }
-    @Test func mainActorRunAsync() async throws {
+
+    @Test func testMainActorRunAsync() async throws {
         await MainActor.run {
             // 여기 코드는 main thread 에서 실행된다.
         }
     }
+
 }

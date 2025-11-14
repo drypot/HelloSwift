@@ -33,7 +33,7 @@ struct OSAllocatedUnfairLockTests {
         // Sendable 해야 다른 스레드에서 실행될 클로저에 넣을 수 있다.
         // final class 여야 Sendable 해 진다.
 
-        final class Counter: Sendable {
+        nonisolated final class Counter: Sendable {
             let _value: OSAllocatedUnfairLock<Int>
 
             init() {

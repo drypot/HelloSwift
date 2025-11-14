@@ -60,14 +60,16 @@ struct TypeErasureTests {
             var content: Content? {
                 fatalError()
             }
+            init() {
+            }
             func maxQuantity() -> Int {
                 fatalError()
             }
         }
 
-        class AnyContainerBox<Container: ContainerProtocol> : AnyContainerBase<Container.Content> {
+        final class AnyContainerBox<Container: ContainerProtocol> : AnyContainerBase<Container.Content> {
 
-            var container: Container
+            let container: Container
 
             init(_ container: Container) {
                 self.container = container

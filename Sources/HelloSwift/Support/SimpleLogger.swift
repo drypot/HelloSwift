@@ -8,7 +8,7 @@
 import Foundation
 import os
 
-public struct SimpleLogger<T>: Sendable where T: Sendable {
+nonisolated public struct SimpleLogger<T>: Sendable where T: Sendable {
 
     private let _log = OSAllocatedUnfairLock(initialState: [T]())
 

@@ -76,7 +76,22 @@ struct TaskGroupTesting {
                 await identityAsync(30)
             }
 
-            return await group.reduce(0) { $0 + $1 }
+            // 오류난다.
+            // Sending main actor-isolated value of non-Sendable type
+            // ... TaskGroup<Int>.Element) async ...
+            // to nonisolated instance method 'reduce'
+            // risks causing races in between main actor-isolated and nonisolated uses
+
+            // return await group.reduce(0) { $0 + $1 }
+
+            // 로컬 루프로 풀어주면 오류가 사라진다.
+
+            var total = 0
+            while let value = await group.next() {
+                total += value
+            }
+
+            return total
         }
 
         #expect(sum == 60)

@@ -18,7 +18,7 @@ struct CollectionMakingTests {
 
     @Test func testSimpleCustomCollection() throws {
 
-        struct CustomCollection: Collection {
+        struct CustomCollection: @MainActor Collection {
             typealias Element = Int
             typealias Index = Int
 
