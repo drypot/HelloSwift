@@ -13,7 +13,7 @@ import os
 
 nonisolated let connectionIDGen = IntSequenceWithLockIterator()
 
-public nonisolated final class MessageServerManager: Sendable {
+public nonisolated final class MessageServer: Sendable {
 
     private let listener: NWListener
 
@@ -23,7 +23,7 @@ public nonisolated final class MessageServerManager: Sendable {
     }
 
     func log(_ message: String) {
-        print("server manager: \(message)")
+        print("server: \(message)")
     }
 
     public func start() async throws {
@@ -47,7 +47,7 @@ public nonisolated final class MessageServerManager: Sendable {
                 }
             }
             listener.newConnectionHandler = { connection in
-                MessageServer(connection: connection).start()
+                MessageServerClientHandler(connection: connection).start()
             }
             listener.start(queue: .global())
         }
@@ -55,9 +55,6 @@ public nonisolated final class MessageServerManager: Sendable {
             self.log("state, \(state)")
 
             switch state {
-            case .ready:
-                break
-
             case .failed(let error):
                 self.log("error, \(error)")
                 self.listener.cancel()
@@ -77,7 +74,7 @@ public nonisolated final class MessageServerManager: Sendable {
 
 }
 
-nonisolated final class MessageServer: Sendable {
+nonisolated final class MessageServerClientHandler: Sendable {
     private let id: Int
     private let connection: NWConnection
 
@@ -95,9 +92,6 @@ nonisolated final class MessageServer: Sendable {
             self.log("state, \(state)")
 
             switch state {
-            case .ready:
-                break
-
             case .failed(let error):
                 self.log("error, \(error)")
                 self.connection.cancel()
@@ -124,33 +118,40 @@ nonisolated final class MessageServer: Sendable {
 
     private func setupHeaderReceiver() {
         connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { data, _, isComplete, error in
+            if let error {
+                self.processReceiveError(error)
+                return
+            }
             if let data, data.count == 4 {
                 let lengthBE = data.withUnsafeBytes { $0.load(as: UInt32.self) }
                 let length = Int(UInt32(bigEndian: lengthBE))
                 self.log("received header")
-                self.setupPayloadReceiver(length: length)
+                if !isComplete {
+                    self.setupPayloadReceiver(length: length)
+                }
             }
-            self.checkReceiveError(isComplete: isComplete, error: error)
         }
     }
 
     private func setupPayloadReceiver(length: Int) {
         connection.receive(minimumIncompleteLength: length, maximumLength: length) { data, _, isComplete, error in
+            if let error {
+                self.processReceiveError(error)
+                return
+            }
             if let data, data.count == length {
                 self.log("received data, length \(length)")
                 self.process(data)
-                self.setupHeaderReceiver()
+                if !isComplete {
+                    self.setupHeaderReceiver()
+                }
             }
-            self.checkReceiveError(isComplete: isComplete, error: error)
         }
     }
 
-    private func checkReceiveError(isComplete: Bool, error: NWError?) {
-        if let error {
-            log("receive error, \(error)")
-        }
-        if isComplete {
-        }
+    private func processReceiveError(_ error: NWError) {
+        log("receive error, \(error)")
+        stop()
     }
 
     private func process(_ data: Data) {
@@ -177,8 +178,8 @@ nonisolated final class MessageServer: Sendable {
 
 }
 
-extension MessageServer: Hashable {
-    static func == (lhs: MessageServer, rhs: MessageServer) -> Bool {
+extension MessageServerClientHandler: Hashable {
+    static func == (lhs: MessageServerClientHandler, rhs: MessageServerClientHandler) -> Bool {
         return lhs.id == rhs.id
     }
 

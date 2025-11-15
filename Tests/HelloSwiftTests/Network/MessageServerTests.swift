@@ -16,7 +16,7 @@ struct MessageServerTests {
     @Test func test() async throws {
         let port:UInt16 = 9090
 
-        let serverManager = MessageServerManager(port: port)
+        let serverManager = MessageServer(port: port)
         try await serverManager.start()
 
         let client = MessageClient(host: "localhost", port: port)

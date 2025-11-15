@@ -34,40 +34,54 @@ nonisolated public final class SimpleHTTPServer<Router>: Sendable
     }
 
     public func start() async throws {
-        await withCheckedContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             listener.stateUpdateHandler = { state in
+                self.log("state, \(state)")
+
                 switch state {
                 case .ready:
-                    self.log("state, ready on port \(self.listener.port!)")
-                    continuation.resume()
+                    continuation.resume(returning: ())
+
                 case .failed(let error):
-                    self.log("state, failed, error: \(error)")
-                    // exit(EXIT_FAILURE)
+                    self.log("error, \(error)")
+                    continuation.resume(throwing: error)
+
                 case .cancelled:
-                    self.log("state, canceled")
+                    continuation.resume(throwing: NWError.posix(.ECANCELED))
+
                 default:
-                    self.log("state, \(state)")
                     break
                 }
             }
             listener.newConnectionHandler = { connection in
-                SimpleHTTPServerConnection(connection: connection, router: self.router).start()
+                SimpleHTTPServerClientHandler(connection: connection, router: self.router).start()
             }
             listener.start(queue: .global())
         }
-        log("started")
+        listener.stateUpdateHandler = { state in
+            self.log("state, \(state)")
+
+            switch state {
+            case .failed(let error):
+                self.log("error, \(error)")
+                self.listener.cancel()
+
+            case .cancelled:
+                break
+
+            default:
+                break
+            }
+        }
     }
 
     public func stop() {
-        self.listener.stateUpdateHandler = nil
-        self.listener.newConnectionHandler = nil
         self.listener.cancel()
-        log("stopped")
     }
 
 }
 
-nonisolated final class SimpleHTTPServerConnection<Router>: Sendable
+nonisolated final class SimpleHTTPServerClientHandler<Router>: Sendable
     where Router: SimpleHTTPRouter {
 
     let id: Int
@@ -82,16 +96,30 @@ nonisolated final class SimpleHTTPServerConnection<Router>: Sendable
     }
 
     func log(_ message: String) {
-        print("web connection \(self.id): \(message)")
+        print("web server, \(self.id): \(message)")
     }
 
     func start() {
-        receive()
+        connection.stateUpdateHandler = { state in
+            self.log("state, \(state)")
+
+            switch state {
+            case .failed(let error):
+                self.log("error, \(error)")
+                self.connection.cancel()
+
+            case .cancelled:
+                break
+
+            default:
+                break
+            }
+        }
+        setupReceiver()
         connection.start(queue: .global())
-        log("started")
     }
 
-    private func receive() {
+    private func setupReceiver() {
         connection.receive(
             minimumIncompleteLength: 1,
             maximumLength: connection.maximumDatagramSize
@@ -122,26 +150,21 @@ nonisolated final class SimpleHTTPServerConnection<Router>: Sendable
                     self.connection.send(content: response.responseData(), completion: .idempotent)
                     self.request = nil
                 }
-            }
-            if isComplete {
-                self.log("completed")
-            } else {
-                self.log("receive again")
-                self.receive()
+                if !isComplete {
+                    self.setupReceiver()
+                }
             }
         }
     }
 
     func stop() {
-        connection.stateUpdateHandler = nil
         connection.cancel()
-        log("stopped")
     }
 
 }
 
-extension SimpleHTTPServerConnection: Hashable {
-    static func == (lhs: SimpleHTTPServerConnection, rhs: SimpleHTTPServerConnection) -> Bool {
+extension SimpleHTTPServerClientHandler: Hashable {
+    static func == (lhs: SimpleHTTPServerClientHandler, rhs: SimpleHTTPServerClientHandler) -> Bool {
         return lhs.id == rhs.id
     }
 

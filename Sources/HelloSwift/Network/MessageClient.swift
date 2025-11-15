@@ -30,9 +30,6 @@ nonisolated public final class MessageClient: Sendable {
             self.log("state, \(state)")
 
             switch state {
-            case .ready:
-                break
-
             case .failed(let error):
                 self.log("error, \(error)")
                 Task {
@@ -63,40 +60,48 @@ nonisolated public final class MessageClient: Sendable {
 
     private func setupHeaderReceiver() {
         connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { data, _, isComplete, error in
+            if let error {
+                self.processReceiveError(error)
+                return
+            }
             if let data, data.count == 4 {
                 let lengthBE = data.withUnsafeBytes { $0.load(as: UInt32.self) }
                 let length = Int(UInt32(bigEndian: lengthBE))
                 self.log("received header")
-                self.setupPayloadReceiver(length: length)
+                if !isComplete {
+                    self.setupPayloadReceiver(length: length)
+                }
             }
-            self.checkReceiveError(isComplete: isComplete, error: error)
         }
     }
 
     private func setupPayloadReceiver(length: Int) {
         connection.receive(minimumIncompleteLength: length, maximumLength: length) { data, _, isComplete, error in
+            if let error {
+                self.processReceiveError(error)
+                return
+            }
             if let data, data.count == length {
                 self.log("received data, length \(length)")
                 Task {
                     await self.packetQueue.enqueue(.data(data: data))
-                    self.setupHeaderReceiver()
+                    if isComplete {
+                        Task {
+                            await self.packetQueue.enqueue(.completed)
+                        }
+                    } else {
+                        self.setupHeaderReceiver()
+                    }
                 }
             }
-            self.checkReceiveError(isComplete: isComplete, error: error)
         }
     }
 
-    private func checkReceiveError(isComplete: Bool, error: NWError?) {
-        if let error {
-            log("receive error, \(error)")
-            Task {
-                await self.packetQueue.enqueue(.error(error: error))
-            }
-        }
-        if isComplete {
-            Task {
-                await self.packetQueue.enqueue(.completed)
-            }
+    private func processReceiveError(_ error: NWError) {
+        log("receive error, \(error)")
+        self.stop()
+        Task {
+            await self.packetQueue.enqueue(.error(error: error))
         }
     }
 

@@ -20,7 +20,6 @@ let package = Package(
         .target(
             name: "HelloSwift",
             exclude: [
-//                "Network",
             ],
             swiftSettings: [
                 .defaultIsolation(MainActor.self)
@@ -30,8 +29,6 @@ let package = Package(
             name: "HelloSwiftTests",
             dependencies: ["HelloSwift"],
             exclude: [
-//                "Network",
-                "Combine/Publishers"
             ],
             swiftSettings: [
                 .defaultIsolation(MainActor.self)
