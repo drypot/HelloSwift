@@ -16,26 +16,41 @@ struct MessageServerTests {
     @Test func test() async throws {
         let port:UInt16 = 9090
 
-        let server = MessageServer(port: port)
-        try await server.start()
+        let serverManager = MessageServerManager(port: port)
+        try await serverManager.start()
 
-        let client = MessageClientConnection(host: "localhost", port: port)
-        try await client.start()
+        let client = MessageClient(host: "localhost", port: port)
+        client.start()
 
         do {
-            let message = await client.receive()
-            #expect(message == "hellox")
+            let packet = await client.nextPacket()
+            switch packet {
+            case .data(let data):
+                let message = String(data: data, encoding: .utf8)
+                #expect(message == "hello")
+            default:
+                fatalError()
+            }
         }
 
-        try await client.send("good day")
+        do {
+            let data = "good day".data(using: .utf8)!
+            client.send(data)
+        }
 
         do {
-            let message = await client.receive()
-            #expect(message == "good dayx")
+            let packet = await client.nextPacket()
+            switch packet {
+            case .data(let data):
+                let message = String(data: data, encoding: .utf8)
+                #expect(message == "good day")
+            default:
+                fatalError()
+            }
         }
 
         client.stop()
-        server.stop()
+        serverManager.stop()
     }
 
 }

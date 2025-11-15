@@ -9,12 +9,10 @@ import Foundation
 import Network
 import os
 
-nonisolated public final class MessageClientConnection: @unchecked Sendable {
+nonisolated public final class MessageClient: Sendable {
     private let id: Int
     private let connection: NWConnection
-    private var receiveBuffer = Data()
-    private var nextMessageLength: UInt32?
-    private let messageBuffer = MessageQueue()
+    private let packetQueue = NetworkPacketQueue()
 
     public init(host: String, port: UInt16) {
         self.id = connectionIDGen.next()!
@@ -24,158 +22,105 @@ nonisolated public final class MessageClientConnection: @unchecked Sendable {
     }
 
     func log(_ message: String) {
-        print("client connection \(id): \(message)")
+        print("client, \(id): \(message)")
     }
 
-    public func start() async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .waiting(let error):
-                    self.log("state, waiting, \(error)")
-                    //self.stop()
-                case .ready:
-                    self.log("state, ready")
-                    continuation.resume(returning: ())
-                case .failed(let error):
-                    self.log("state, failed, error: \(error)")
-                    continuation.resume(throwing: error)
-                default:
-                    self.log("state, \(state)")
-                    break
+    public func start() {
+        connection.stateUpdateHandler = { state in
+            self.log("state, \(state)")
+
+            switch state {
+            case .ready:
+                break
+
+            case .failed(let error):
+                self.log("error, \(error)")
+                Task {
+                    await self.packetQueue.enqueue(.error(error: error))
                 }
+                self.connection.cancel()
+
+            case .cancelled:
+                Task {
+                    await self.packetQueue.enqueue(.completed)
+                }
+
+            default:
+                break
             }
-            setupReceiver()
-            connection.start(queue: .global())
-            log("started")
         }
+        setupReceiver()
+        connection.start(queue: .global())
     }
 
     public func stop() {
-        connection.stateUpdateHandler = nil
         connection.cancel()
-        log("stopped")
     }
 
     private func setupReceiver() {
-        connection.receive(
-            minimumIncompleteLength: 1,
-            maximumLength: connection.maximumDatagramSize
-        ) { data, _, isComplete, error in
+        setupHeaderReceiver()
+    }
 
-            if let data, !data.isEmpty {
-                self.receiveBuffer.append(data)
-                self.processBuffer()
+    private func setupHeaderReceiver() {
+        connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { data, _, isComplete, error in
+            if let data, data.count == 4 {
+                let lengthBE = data.withUnsafeBytes { $0.load(as: UInt32.self) }
+                let length = Int(UInt32(bigEndian: lengthBE))
+                self.log("received header")
+                self.setupPayloadReceiver(length: length)
             }
-            if let error {
-                self.log("receive error, \(error)")
-                self.stop()
-                return
-            }
-            if isComplete {
-                self.log("completed")
-                self.stop()
-                return
-            }
-            self.setupReceiver()
+            self.checkReceiveError(isComplete: isComplete, error: error)
         }
     }
 
-    private func processBuffer() {
-        while true {
-            // Case 1: 아직 다음 메시지 길이를 모르는 상태 (헤더 읽기)
-            if nextMessageLength == nil {
-                let headerSize = MemoryLayout<UInt32>.size
-
-                // 버퍼에 헤더를 읽을 만큼 데이터가 있는지 확인
-                if receiveBuffer.count >= headerSize {
-                    let lengthData = receiveBuffer.prefix(headerSize)
-                    let length = lengthData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian }
-                    receiveBuffer.removeFirst(headerSize)
-                    nextMessageLength = length
-                } else {
-                    // 버퍼에 헤더도 채워지지 않았다면 다음 데이터 대기
-                    break
+    private func setupPayloadReceiver(length: Int) {
+        connection.receive(minimumIncompleteLength: length, maximumLength: length) { data, _, isComplete, error in
+            if let data, data.count == length {
+                self.log("received data, length \(length)")
+                Task {
+                    await self.packetQueue.enqueue(.data(data: data))
+                    self.setupHeaderReceiver()
                 }
             }
-
-            // Case 2: 다음 메시지 길이는 알고 있는 상태 (본문 읽기)
-            if let requiredLength = nextMessageLength {
-                let requiredIntLength = Int(requiredLength)
-                if receiveBuffer.count >= requiredIntLength {
-                    let payloadData = receiveBuffer.prefix(requiredIntLength)
-                    receiveBuffer.removeFirst(requiredIntLength)
-                    handleCompleteMessage(data: payloadData)
-                    nextMessageLength = nil
-                } else {
-                    // 버퍼에 본문이 채워지지 않았다면 다음 데이터 대기
-                    break
-                }
-            }
+            self.checkReceiveError(isComplete: isComplete, error: error)
         }
     }
 
-    private func handleCompleteMessage(data: Data) {
-        if let message = String(data: data, encoding: .utf8) {
+    private func checkReceiveError(isComplete: Bool, error: NWError?) {
+        if let error {
+            log("receive error, \(error)")
             Task {
-                await messageBuffer.enqueue(message)
+                await self.packetQueue.enqueue(.error(error: error))
             }
-        } else {
-            fatalError()
+        }
+        if isComplete {
+            Task {
+                await self.packetQueue.enqueue(.completed)
+            }
         }
     }
 
-    public func receive() async -> String {
-        return await messageBuffer.dequeue()
+    public func nextPacket() async -> NetworkPacket {
+        return await packetQueue.dequeue()
     }
 
-    public func send(_ message: String) async throws {
-        let payload = message.data(using: .utf8)!
-        let length = UInt32(payload.count)
-        var lengthBigEndian = length.bigEndian
-        let lengthData = withUnsafeBytes(of: lengthBigEndian) { Data($0) }
+    public func send(_ data: Data) {
+        let length = UInt32(data.count)
+        let lengthBE = length.bigEndian
+        let lengthData = withUnsafeBytes(of: lengthBE) { Data($0) }
 
         var packet = Data()
         packet.append(lengthData)
-        packet.append(payload)
+        packet.append(data)
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            connection.send(content: packet, completion: .contentProcessed({ error in
-                if let error {
-                    self.log("send error, \(error)")
-                    self.stop()
-                    continuation.resume(throwing: error)
-                } else {
-                    self.log("sent, \(message)")
-                    continuation.resume(returning: ())
-                }
-            }))
-        }
+        connection.send(content: packet, completion: .contentProcessed({ error in
+            if let error {
+                self.log("send error, \(error)")
+            } else {
+                self.log("sent, length \(length)")
+            }
+        }))
     }
 
 }
 
-fileprivate actor MessageQueue {
-    private var queue: [String] = []
-    private var waiting: [CheckedContinuation<String, Never>] = []
-
-    func enqueue(_ value: String) {
-        if let waiter = waiting.first {
-            waiting.removeFirst()
-            waiter.resume(returning: value)
-        } else {
-            queue.append(value)
-        }
-    }
-
-    func dequeue() async -> String {
-        if !queue.isEmpty {
-            return queue.removeFirst()
-        }
-
-        return await withCheckedContinuation { continuation in
-            waiting.append(continuation)
-        }
-    }
-
-}
