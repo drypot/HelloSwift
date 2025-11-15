@@ -49,7 +49,8 @@ struct ContinuationTests {
 
         logger.log(1)
         do {
-            let _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+            let _ = try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<String, Error>) in
                 logger.log(2)
                 DispatchQueue.global().async {
                     logger.log(3)
