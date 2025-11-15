@@ -29,39 +29,25 @@ struct ObservableTests {
         let pet = Pet(name: "max", age: 7)
 
         withObservationTracking {
-            _ = pet.name
             logger.log(1)
+            _ = pet.name
+            _ = pet.age
         } onChange: {
             logger.log(2)
         }
 
+        logger.log(3)
         pet.name = "max juior"
 
-        // 노출된 name 프로퍼티가 업데이트되어 onChange 가 호출되었다.
+        logger.log(4)
+        pet.age = 2
 
-        #expect(logger.result() == [1, 2])
+        // 노출된 프로퍼티가 업데이트되어 onChange 가 호출되었다.
+        // 아무 프로퍼티나 업데이트 될 때 한번만 호출된다.
+
+        #expect(logger.result() == [1, 3, 2, 4])
     }
 
-    @Test func testWhenExposedPropertyChangedMultipleTimes() async throws {
-        let logger = SimpleLogger<Int>()
-
-        let pet = Pet(name: "max", age: 7)
-
-        withObservationTracking {
-            _ = pet.name
-            logger.log(1)
-        } onChange: {
-            logger.log(2)
-        }
-
-        pet.name = "max juior"
-        pet.name = "max juior again"
-
-        // 노출된 name 프로퍼티가 업데이트되어 onChange 가 호출되었다.
-        // 한번만 호출되었다.
-
-        #expect(logger.result() == [1, 2])
-    }
 
     @Test func testWhenNotExposedPropertyChanged() async throws {
         let logger = SimpleLogger<Int>()
@@ -69,17 +55,18 @@ struct ObservableTests {
         let pet = Pet(name: "max", age: 7)
 
         withObservationTracking {
-            _ = pet.name
             logger.log(1)
+            _ = pet.name
         } onChange: {
             logger.log(2)
         }
 
+        logger.log(3)
         pet.age = 2
 
         // name 프로퍼티가 노출되었는데 age 프로퍼티를 변경하니 onChange 가 호출되지 않았다.
 
-        #expect(logger.result() == [1])
+        #expect(logger.result() == [1, 3])
     }
 
 }

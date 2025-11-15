@@ -1,5 +1,5 @@
 //
-//  StructArrayObservableTests.swift
+//  ObservableObservableArrayTests.swift
 //  HelloSwift
 //
 //  Created by Kyuhyun Park on 11/19/24.
@@ -10,10 +10,14 @@ import Foundation
 import HelloSwift
 import Testing
 
-struct StructArrayObservableTests {
+struct ObservableObservableArrayTests {
 
-    struct Product {
+    @Observable class Product {
         var name: String
+
+        init(name: String = "") {
+            self.name = name
+        }
     }
 
     @Observable class Model {
@@ -32,10 +36,9 @@ struct StructArrayObservableTests {
             logger.log(1)
         }
 
-        model.products.append(Product(name: "Product2"))
-
         // 새 Element 가 추가되면 onChange 가 호출된다.
 
+        model.products.append(Product(name: "Product2"))
         #expect(logger.result() == [1])
     }
 
@@ -51,11 +54,10 @@ struct StructArrayObservableTests {
             logger.log(1)
         }
 
+        // arry 만 노출된 상태에서는 Element 가 수정되도 onChange 가 호출되지 않는다.
+
         model.products[0].name = "Product1b"
-
-        // Element 가 수정되면 onChange 가 호출된다.
-
-        #expect(logger.result() == [1])
+        #expect(logger.result() == [])
     }
 
     @Test func testWhenElementUpdated2() async throws {
@@ -63,44 +65,17 @@ struct StructArrayObservableTests {
 
         let model = Model()
         model.products.append(Product(name: "Product1"))
-        model.products.append(Product(name: "Product2"))
 
         withObservationTracking {
-            _ = model.products[1]
+            _ = model.products[0].name
         } onChange: {
             logger.log(1)
         }
+
+        // Element property가 노출되면 property가 수정될 때 onChange 가 호출된다.
 
         model.products[0].name = "Product1b"
-
-        // array 가 관찰대상이기 때문에 어떤 엘리먼트가 노출되는지는 상관이 없다.
-
         #expect(logger.result() == [1])
-    }
-
-    @Test func testJustOnce() async throws {
-        let logger = SimpleLogger<Int>()
-
-        let products = Model()
-        products.products.append(Product(name: "Product1"))
-
-        withObservationTracking {
-            _ = products.products
-        } onChange: {
-            logger.log(1)
-        }
-
-        logger.log(2)
-        products.products.append(Product(name: "Product2"))
-        logger.log(3)
-        products.products.append(Product(name: "Product3"))
-        logger.log(4)
-        products.products.append(Product(name: "Product4"))
-        logger.log(5)
-
-        // onChange 는 한번만 호출된다.
-
-        #expect(logger.result() == [2, 1, 3, 4, 5])
     }
 
 }
