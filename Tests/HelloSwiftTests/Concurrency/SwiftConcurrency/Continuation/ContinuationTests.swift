@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import HelloSwift
 import Testing
 
 // https://developer.apple.com/documentation/swift/withcheckedcontinuation(isolation:function:_:)
@@ -13,56 +14,60 @@ import Testing
 // Testing completion handler based code in Swift Testing
 // https://www.donnywals.com/testing-completion-handler-based-code-in-swift-testing/
 
-// Async 코드에 sync handler 코드를 붙일 때 사용한다.
-
-// fetchData, fetchFailure 같은 handler 받는 구형 API 가 있을 때,
-
-fileprivate func fetchData(completion: @escaping @Sendable (Result<String, Error>) -> Void) {
-    DispatchQueue.global().async {
-        completion(.success("abc"))
-    }
-}
-
-fileprivate func fetchFailure(completion: @escaping @Sendable (Result<String, Error>) -> Void) {
-    DispatchQueue.global().async {
-        completion(.failure(NSError(domain: "FetchError", code: -1, userInfo: nil)))
-    }
-}
-
-// 이를 Async 코드로 감싸려면,
-
 struct ContinuationTests {
 
-    @Test func testSuccess() async throws {
+    // callback 받는 구형 API 가 있을 때, 이를 async/await 코드로 감쌀 수 있다.
 
-        let result = await withCheckedContinuation { continuation in
-            fetchData { result in
-                continuation.resume(returning: result)
+    @Test func testContinuation() async throws {
+        let logger = SimpleLogger<Int>()
+
+        logger.log(1)
+        do {
+            let result = try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<String, Error>) in
+                logger.log(2)
+                DispatchQueue.global().async {
+                    logger.log(3)
+                    continuation.resume(returning: "hello")
+                    logger.log(4)
+                }
+                logger.log(5)
             }
-        }
-
-        switch result {
-        case .success(let data):
-            #expect(data == "abc")
-        case .failure:
+            logger.log(6)
+            #expect(result == "hello")
+        } catch let error as NSError {
+            logger.log(7)
+            _ = error
             fatalError()
         }
+
+        #expect(logger.result() == [1, 2, 5, 3, 4, 6])
     }
 
-    @Test func testFailure() async throws {
+    @Test func testThrowingContinuation() async throws {
+        let logger = SimpleLogger<Int>()
 
-        let result = await withCheckedContinuation { continuation in
-            fetchFailure { result in
-                continuation.resume(returning: result)
+        logger.log(1)
+        do {
+            let _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+                logger.log(2)
+                DispatchQueue.global().async {
+                    logger.log(3)
+                    let error = NSError(domain: "Test", code: 100, userInfo: nil)
+                    continuation.resume(throwing: error)
+                    logger.log(4)
+                }
+                logger.log(5)
             }
+            logger.log(6)
+            fatalError()
+        } catch let error as NSError {
+            logger.log(7)
+            #expect(error.code == 100)
         }
 
-        switch result {
-        case .success:
-            fatalError()
-        case .failure(let error as NSError):
-            #expect(error.domain == "FetchError")
-        }
+        #expect(logger.result() == [1, 2, 5, 3, 4, 7])
     }
+
 
 }
