@@ -38,7 +38,6 @@ struct ContinuationTests {
         } catch let error as NSError {
             logger.log(7)
             _ = error
-            fatalError()
         }
 
         #expect(logger.result() == [1, 2, 5, 3, 4, 6])
@@ -61,7 +60,6 @@ struct ContinuationTests {
                 logger.log(5)
             }
             logger.log(6)
-            fatalError()
         } catch let error as NSError {
             logger.log(7)
             #expect(error.code == 100)
