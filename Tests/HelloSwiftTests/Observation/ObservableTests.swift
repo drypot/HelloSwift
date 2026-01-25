@@ -13,7 +13,8 @@ import Testing
 
 struct ObservableTests {
 
-    @Observable class Pet {
+    @Observable   // @Observable 은 class에만 쓸 수 있다. 
+    class Pet {
         var name: String
         var age: Int
 
@@ -48,6 +49,38 @@ struct ObservableTests {
         #expect(logger.result() == [1, 3, 2, 4])
     }
 
+    @Test func testWhenExposedPropertyChanged2() async throws {
+        let logger = SimpleLogger<Int>()
+
+        let pet = Pet(name: "max", age: 7)
+
+        withObservationTracking {
+            logger.log(1)
+            _ = pet.name
+            _ = pet.age
+        } onChange: {
+            logger.log(2)
+        }
+
+        withObservationTracking {
+            logger.log(3)
+            _ = pet.name
+            _ = pet.age
+        } onChange: {
+            logger.log(2) // 위아래 onChange 가 무작위로 호출되서 log(2) 로 통일했다.
+        }
+
+        logger.log(5)
+        pet.name = "max juior"
+
+        logger.log(6)
+        pet.age = 2
+
+        // 노출된 프로퍼티가 업데이트되어 onChange 가 호출되었다.
+        // 아무 프로퍼티나 업데이트 될 때 한번만 호출된다.
+
+        #expect(logger.result() == [1, 3, 5, 2, 2, 6])
+    }
 
     @Test func testWhenNotExposedPropertyChanged() async throws {
         let logger = SimpleLogger<Int>()

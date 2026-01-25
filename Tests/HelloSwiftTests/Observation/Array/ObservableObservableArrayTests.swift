@@ -12,7 +12,8 @@ import Testing
 
 struct ObservableObservableArrayTests {
 
-    @Observable class Product {
+    @Observable
+    class Product {
         var name: String
 
         init(name: String = "") {
@@ -20,7 +21,8 @@ struct ObservableObservableArrayTests {
         }
     }
 
-    @Observable class Model {
+    @Observable
+    class Model {
         var products: [Product] = []
     }
 

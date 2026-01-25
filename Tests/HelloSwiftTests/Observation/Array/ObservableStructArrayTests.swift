@@ -16,7 +16,8 @@ struct ObservableStructArrayTests {
         var name: String
     }
 
-    @Observable class Model {
+    @Observable
+    class Model {
         var products: [Product] = []
     }
 
