@@ -30,6 +30,9 @@ let package = Package(
             dependencies: ["HelloSwift"],
             exclude: [
             ],
+            resources: [
+                .copy("Resources/DirectoryEnumeratorFixtures")
+            ],
             swiftSettings: [
                 .defaultIsolation(MainActor.self)
             ]
