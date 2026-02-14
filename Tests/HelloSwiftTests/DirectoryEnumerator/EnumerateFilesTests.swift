@@ -24,27 +24,28 @@ struct EnumerateFilesTests {
     @Test func testEnumerateFiles() throws {
         let fileManager = FileManager.default
         let rootURL = fixtureURL()
-        var resultURLs = [URL]()
+        var fileURLs = [URL]()
 
-        let keys: Set<URLResourceKey> = [.isRegularFileKey]
+        let keys: [URLResourceKey] = [.isRegularFileKey]
+        let keySet = Set(keys)
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
 
         let items = try fileManager.contentsOfDirectory(
             at: rootURL,
-            includingPropertiesForKeys: Array(keys),
+            includingPropertiesForKeys: keys,
             options: options
         )
 
         for case let item in items {
             try autoreleasepool {
-                let values = try item.resourceValues(forKeys: keys)
+                let values = try item.resourceValues(forKeys: keySet)
                 if values.isRegularFile == true {
-                    resultURLs.append(item)
+                    fileURLs.append(item)
                 }
             }
         }
 
-        let results = resultURLs
+        let results = fileURLs
             .map { url in
                 url.path.replacingOccurrences(of: rootURL.path, with: "")
                     .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -59,27 +60,28 @@ struct EnumerateFilesTests {
 
     @Test func testEnumerateFilesDeeply() throws {
         let rootURL = fixtureURL()
-        var resultURLs = [URL]()
+        var fileURLs = [URL]()
 
-        let keys: Set<URLResourceKey> = [.isRegularFileKey]
+        let keys: [URLResourceKey] = [.isRegularFileKey]
+        let keySet = Set(keys)
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
 
         guard let enumerator = FileManager.default.enumerator(
             at: rootURL,
-            includingPropertiesForKeys: Array(keys),
+            includingPropertiesForKeys: keys,
             options: options
         ) else { return }
 
         for case let fileURL as URL in enumerator {
             try autoreleasepool {
-                let values = try fileURL.resourceValues(forKeys: keys)
+                let values = try fileURL.resourceValues(forKeys: keySet)
                 if values.isRegularFile == true {
-                    resultURLs.append(fileURL)
+                    fileURLs.append(fileURL)
                 }
             }
         }
 
-        let results = resultURLs
+        let results = fileURLs
             .map { url in
                 url.path.replacingOccurrences(of: rootURL.path, with: "")
                     .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -99,10 +101,10 @@ struct EnumerateFilesTests {
     }
 
     @Test func testBuildingDirectoryTree() throws {
-        class DirectoryNode {
+        class Folder {
             let name: String
             let url: URL
-            var children: [DirectoryNode] = []
+            var children: [Folder] = []
 
             init(url: URL) {
                 self.url = url
@@ -112,22 +114,23 @@ struct EnumerateFilesTests {
 
         let rootURL = fixtureURL()
 
-        let keys: Set<URLResourceKey> = [.isDirectoryKey]
+        let keys: [URLResourceKey] = [.isDirectoryKey]
+        let keySet = Set(keys)
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
 
-        func buildDirectoryTree(at url: URL) throws -> DirectoryNode {
+        func buildDirectoryTree(at url: URL) throws -> Folder {
             let fileManager = FileManager.default
-            let node = DirectoryNode(url: url)
+            let node = Folder(url: url)
 
             let items = try fileManager.contentsOfDirectory(
                 at: url,
-                includingPropertiesForKeys: Array(keys),
+                includingPropertiesForKeys: Array(keySet),
                 options: options
             )
 
             for item in items {
                 try autoreleasepool {
-                    let values = try item.resourceValues(forKeys: keys)
+                    let values = try item.resourceValues(forKeys: keySet)
                     if values.isDirectory == true {
                         let childNode = try buildDirectoryTree(at: item)
                         node.children.append(childNode)
