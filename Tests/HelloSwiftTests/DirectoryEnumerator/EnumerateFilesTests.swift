@@ -30,17 +30,17 @@ struct EnumerateFilesTests {
         let keySet = Set(keys)
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
 
-        let items = try fileManager.contentsOfDirectory(
+        let urls = try fileManager.contentsOfDirectory(
             at: rootURL,
             includingPropertiesForKeys: keys,
             options: options
         )
 
-        for case let item in items {
+        for url in urls {
             try autoreleasepool {
-                let values = try item.resourceValues(forKeys: keySet)
+                let values = try url.resourceValues(forKeys: keySet)
                 if values.isRegularFile == true {
-                    fileURLs.append(item)
+                    fileURLs.append(url)
                 }
             }
         }
@@ -72,11 +72,11 @@ struct EnumerateFilesTests {
             options: options
         ) else { return }
 
-        for case let fileURL as URL in enumerator {
+        for case let url as URL in enumerator {
             try autoreleasepool {
-                let values = try fileURL.resourceValues(forKeys: keySet)
+                let values = try url.resourceValues(forKeys: keySet)
                 if values.isRegularFile == true {
-                    fileURLs.append(fileURL)
+                    fileURLs.append(url)
                 }
             }
         }
@@ -100,11 +100,11 @@ struct EnumerateFilesTests {
         ])
     }
 
-    @Test func testBuildingDirectoryTree() throws {
+    @Test func testBuildFolderTree() throws {
         class Folder {
             let name: String
             let url: URL
-            var children: [Folder] = []
+            var children: [Folder]?
 
             init(url: URL) {
                 self.url = url
@@ -118,36 +118,40 @@ struct EnumerateFilesTests {
         let keySet = Set(keys)
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
 
-        func buildDirectoryTree(at url: URL) throws -> Folder {
+        func buildFolderNode(from url: URL) throws -> Folder {
             let fileManager = FileManager.default
-            let node = Folder(url: url)
+            let folder = Folder(url: url)
 
-            let items = try fileManager.contentsOfDirectory(
+            let urls = try fileManager.contentsOfDirectory(
                 at: url,
                 includingPropertiesForKeys: Array(keySet),
                 options: options
             )
 
-            for item in items {
+            for url in urls {
                 try autoreleasepool {
-                    let values = try item.resourceValues(forKeys: keySet)
+                    let values = try url.resourceValues(forKeys: keySet)
                     if values.isDirectory == true {
-                        let childNode = try buildDirectoryTree(at: item)
-                        node.children.append(childNode)
+                        let childFolder = try buildFolderNode(from: url)
+                        if folder.children == nil {
+                            folder.children = [childFolder]
+                        } else {
+                            folder.children!.append(childFolder)
+                        }
                     }
                 }
             }
 
-            return node
+            return folder
         }
 
-        let result = try buildDirectoryTree(at: rootURL)
+        let result = try buildFolderNode(from: rootURL)
 
         #expect(result.name == "DirectoryEnumeratorFixtures")
-        #expect(result.children.count == 1)
-        #expect(result.children[0].name == "Sub1")
-        #expect(result.children[0].children.count == 2)
-        #expect(result.children[0].children[0].name == "Sub2")
-        #expect(result.children[0].children[1].name == "Sub3")
+        #expect(result.children!.count == 1)
+        #expect(result.children![0].name == "Sub1")
+        #expect(result.children![0].children!.count == 2)
+        #expect(result.children![0].children![0].name == "Sub2")
+        #expect(result.children![0].children![1].name == "Sub3")
     }
 }
