@@ -25,12 +25,12 @@ struct DirectoryCrawlerTests {
     @Test func testCollectFiles() throws {
         let root = resourceURL()
         let files = try! DirectoryCrawler().collectFiles(from: root)
-        let results = files.map { url in
+        let sorted = files.map { url in
             url.path.replacingOccurrences(of: root.path, with: "")
                 .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         }.sorted()
 
-        #expect(results == [
+        #expect(sorted == [
             "dummy1.txt",
             "dummy2.txt"
         ])
@@ -39,12 +39,12 @@ struct DirectoryCrawlerTests {
     @Test func testCollectFilesRecursively() throws {
         let root = resourceURL()
         let files = try! DirectoryCrawler().collectFilesRecursively(from: root)
-        let results = files.map { url in
+        let sorted = files.map { url in
             url.path.replacingOccurrences(of: root.path, with: "")
                 .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         }.sorted()
 
-        #expect(results == [
+        #expect(sorted == [
             "Sub1/Sub2/dummy5.txt",
             "Sub1/Sub2/dummy6.txt",
             "Sub1/Sub3/dummy7.txt",
@@ -53,6 +53,48 @@ struct DirectoryCrawlerTests {
             "Sub1/dummy4.txt",
             "dummy1.txt",
             "dummy2.txt"
+        ])
+    }
+
+    @Test func testCollectFilesRecursivelySub1() throws {
+        let root = resourceURL("Sub1")
+        let files = try! DirectoryCrawler().collectFilesRecursively(from: root)
+        let sorted = files.map { url in
+            url.path.replacingOccurrences(of: root.path, with: "")
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }.sorted()
+
+        #expect(sorted == [
+            "Sub2/dummy5.txt",
+            "Sub2/dummy6.txt",
+            "Sub3/dummy7.txt",
+            "Sub3/dummy8.txt",
+            "dummy3.txt",
+            "dummy4.txt",
+        ])
+    }
+
+    @Test func testCollectFilesRecursivelyArray() throws {
+        let root = resourceURL()
+        let urls = [
+            resourceURL("dummy1.txt"),
+            resourceURL("Sub1")
+        ]
+
+        let files = try! DirectoryCrawler().collectFilesRecursively(from: urls)
+        let sorted = files.map { url in
+            url.path.replacingOccurrences(of: root.path, with: "")
+                .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        }.sorted()
+
+        #expect(sorted == [
+            "Sub1/Sub2/dummy5.txt",
+            "Sub1/Sub2/dummy6.txt",
+            "Sub1/Sub3/dummy7.txt",
+            "Sub1/Sub3/dummy8.txt",
+            "Sub1/dummy3.txt",
+            "Sub1/dummy4.txt",
+            "dummy1.txt",
         ])
     }
 

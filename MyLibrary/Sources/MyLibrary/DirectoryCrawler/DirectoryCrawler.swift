@@ -21,59 +21,70 @@ public class Folder {
 public struct DirectoryCrawler {
     public init() {}
 
-    public func collectFiles(from root: URL) throws -> [URL] {
+    public func collectFiles(from url: URL) throws -> [URL] {
         let fileManager = FileManager.default
-        var files: [URL] = []
+        var results: [URL] = []
 
         let keys: [URLResourceKey] = [.isRegularFileKey]
         let keySet = Set(keys)
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
 
-        let urls = try fileManager.contentsOfDirectory(
-            at: root,
+        let items = try fileManager.contentsOfDirectory(
+            at: url,
             includingPropertiesForKeys: keys,
             options: options
         )
 
-        for url in urls {
+        for item in items {
             try autoreleasepool {
-                let values = try url.resourceValues(forKeys: keySet)
+                let values = try item.resourceValues(forKeys: keySet)
                 if values.isRegularFile == true {
-                    files.append(url)
+                    results.append(item)
                 }
             }
         }
 
-        return files
+        return results
     }
 
-    public func collectFilesRecursively(from root: URL) throws -> [URL] {
+    public func collectFilesRecursively(from urls: [URL]) throws -> [URL] {
         let fileManager = FileManager.default
-        var files: [URL] = []
+        var results: [URL] = []
 
-        let keys: [URLResourceKey] = [.isRegularFileKey]
+        let keys: [URLResourceKey] = [.isRegularFileKey, .isDirectoryKey]
         let keySet = Set(keys)
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
 
-        guard let enumerator = fileManager.enumerator(
-            at: root,
-            includingPropertiesForKeys: keys,
-            options: options
-        ) else { return [] }
+        for url in urls {
+            let values = try url.resourceValues(forKeys: keySet)
+            if values.isRegularFile == true {
+                results.append(url)
+            } else if values.isDirectory == true {
+                guard let enumerator = fileManager.enumerator(
+                    at: url,
+                    includingPropertiesForKeys: keys,
+                    options: options
+                ) else { continue }
 
-        for case let url as URL in enumerator {
-            try autoreleasepool {
-                let values = try url.resourceValues(forKeys: keySet)
-                if values.isRegularFile == true {
-                    files.append(url)
+                for case let item as URL in enumerator {
+                    try autoreleasepool {
+                        let values = try item.resourceValues(forKeys: keySet)
+                        if values.isRegularFile == true {
+                            results.append(item)
+                        }
+                    }
                 }
             }
         }
 
-        return files
+        return results
     }
 
-    public func buildFolderTree(from root: URL) throws -> Folder {
+    public func collectFilesRecursively(from url: URL) throws -> [URL] {
+        return try collectFilesRecursively(from: [url])
+    }
+
+    public func buildFolderTree(from url: URL) throws -> Folder {
         let keys: [URLResourceKey] = [.isDirectoryKey]
         let keySet = Set(keys)
         let options: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
@@ -82,17 +93,17 @@ public struct DirectoryCrawler {
             let fileManager = FileManager.default
             let folder = Folder(url: url)
 
-            let urls = try fileManager.contentsOfDirectory(
+            let items = try fileManager.contentsOfDirectory(
                 at: url,
                 includingPropertiesForKeys: keys,
                 options: options
             )
 
-            for url in urls {
+            for item in items {
                 try autoreleasepool {
-                    let values = try url.resourceValues(forKeys: keySet)
+                    let values = try item.resourceValues(forKeys: keySet)
                     if values.isDirectory == true {
-                        let child = try buildFolder(from: url)
+                        let child = try buildFolder(from: item)
                         if folder.folders == nil {
                             folder.folders = [child]
                         } else {
@@ -105,6 +116,6 @@ public struct DirectoryCrawler {
             return folder
         }
 
-        return try buildFolder(from: root)
+        return try buildFolder(from: url)
     }
 }
