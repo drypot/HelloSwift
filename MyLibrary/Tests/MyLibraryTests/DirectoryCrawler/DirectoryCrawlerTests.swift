@@ -1,6 +1,6 @@
 //
-//  EnumerateFilesTests.swift
-//  HelloSwift
+//  DirectoryCrawlerTests.swift
+//  MyLibrary
 //
 //  Created by Kyuhyun Park on 5/15/24.
 //
@@ -14,7 +14,7 @@ import MyLibrary
  https://stackoverflow.com/questions/46383143/why-does-filemanager-enumerator-use-an-absurd-amount-of-memory
  */
 
-struct EnumerateFilesTests {
+struct DirectoryCrawlerTests {
 
     func resourceURL(_ path: String = "") -> URL {
         return Bundle.module.resourceURL!
@@ -22,7 +22,7 @@ struct EnumerateFilesTests {
             .appending(path: path)
     }
 
-    @Test func testEnumerateFiles() throws {
+    @Test func testCollectFiles() throws {
         let root = resourceURL()
         let files = try! DirectoryCrawler().collectFiles(from: root)
         let results = files.map { url in
@@ -36,7 +36,7 @@ struct EnumerateFilesTests {
         ])
     }
 
-    @Test func testEnumerateFilesDeeply() throws {
+    @Test func testCollectFilesRecursively() throws {
         let root = resourceURL()
         let files = try! DirectoryCrawler().collectFilesRecursively(from: root)
         let results = files.map { url in
