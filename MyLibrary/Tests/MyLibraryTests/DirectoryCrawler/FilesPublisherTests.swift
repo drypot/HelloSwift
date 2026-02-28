@@ -80,7 +80,7 @@ struct FilesPublisherTests {
 
     func resourceURL(_ path: String = "") -> URL {
         return Bundle.module.resourceURL!
-            .appending(path: "DirectoryEnumeratorResources")
+            .appending(path: "DirectoryCrawlerResources")
             .appending(path: path)
     }
 

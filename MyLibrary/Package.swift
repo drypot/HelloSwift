@@ -33,7 +33,7 @@ let package = Package(
 //            ],
             resources: [
                 .copy("Bundle/BundleResources"),
-                .copy("DirectoryEnumerator/DirectoryEnumeratorResources"),
+                .copy("DirectoryCrawler/DirectoryCrawlerResources"),
             ],
 //            swiftSettings: [
 //                .defaultIsolation(MainActor.self)
